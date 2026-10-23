@@ -23,7 +23,7 @@ def main():
     caidos = 0
     for url in urls:
         ok, detalle = check(url)
-        print(f"{'✅ OK    ' if ok else '❌ CAÍDO'} {url} -> {detalle}")
+        print(f"{'!!! OK    ' if ok else '❌ CAÍDO'} {url} -> {detalle}")
         if not ok:
             caidos += 1
 
