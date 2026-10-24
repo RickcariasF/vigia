@@ -1,33 +1,48 @@
+import os
 import sys
 import time
 import requests
 
-TIMEOUT = 10  # segundos máximos de espera por sitio
+TIMEOUT = 10
+# Los secretos se leen de variables de entorno, NUNCA se escriben en el código
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 
 def check(url):
-    """Revisa una URL. Devuelve (está_bien, detalle)."""
     inicio = time.monotonic()
     try:
         r = requests.get(url, timeout=TIMEOUT)
         ms = int((time.monotonic() - inicio) * 1000)
-        return r.ok, f"{r.status_code} en {ms} ms"  # r.ok = código menor a 400
+        return r.ok, f"{r.status_code} en {ms} ms"
     except requests.RequestException as e:
-        return False, type(e).__name__  # DNS, timeout, conexión rechazada...
+        return False, type(e).__name__
+
+
+def alertar(mensaje):
+    """Envía un mensaje a Telegram. Si no hay credenciales, avisa y sigue."""
+    if not TOKEN or not CHAT_ID:
+        print("⚠️  Telegram no configurado, omito la alerta")
+        return
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    requests.post(url, json={"chat_id": CHAT_ID, "text": mensaje}, timeout=TIMEOUT)
 
 
 def main():
     with open("sites.txt") as f:
         urls = [l.strip() for l in f if l.strip() and not l.startswith("#")]
 
-    caidos = 0
+    caidos = []
     for url in urls:
         ok, detalle = check(url)
-        print(f"{'!!! OK    ' if ok else '❌ CAÍDO'} {url} -> {detalle}")
+        print(f"{'✅ OK    ' if ok else '❌ CAÍDO'} {url} -> {detalle}")
         if not ok:
-            caidos += 1
+            caidos.append(f"• {url} ({detalle})")
 
-    sys.exit(1 if caidos else 0)  # código de salida: 0 = todo bien, 1 = hubo caídas
+    if caidos:
+        alertar("🚨 Vigía detectó caídas:\n" + "\n".join(caidos))
+
+    sys.exit(1 if caidos else 0)
 
 
 if __name__ == "__main__":
